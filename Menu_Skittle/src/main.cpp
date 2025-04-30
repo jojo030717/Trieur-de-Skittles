@@ -81,12 +81,11 @@ uint16_t skittleColors[5] = {ILI9341_RED, 0xFD20, ILI9341_GREEN, 0x780F, ILI9341
 uint16_t theme_color = ILI9341_BLACK;
 uint8_t highByte;
 uint8_t lowByte;
-int interrupt_flag_100ms = 0;
 int interrupt_flag = 0;
 int Seconde = 0;
 int Minute = 0;
 hw_timer_t *My_timer = NULL;
-hw_timer_t *My_timer_100ms = NULL;
+
 
 uint16_t echantillon_rouge[longueur_tableau];
 uint16_t echantillon_bleu[longueur_tableau];
@@ -119,7 +118,7 @@ Servo servo_360;
 
 bool boutton_spin_state = false;
 
-uint16_t readColorData(uint8_t msb_reg, uint8_t lsb_reg)  //---------------------fonction capteur de couleur-------------------
+uint16_t readColorData(uint8_t msb_reg, uint8_t lsb_reg)  //---------------------lecture des registre RGB du capteur-------------------
 {
   Wire.beginTransmission(BU27006MUC_ADDRESS);
   Wire.write(lsb_reg);
@@ -136,7 +135,7 @@ uint16_t readColorData(uint8_t msb_reg, uint8_t lsb_reg)  //--------------------
   return (msb << 8) | lsb; // Combinaison de l'octet de poids fort et faible
 }
 
-uint8_t reset_mesurement_flag(void){
+uint8_t reset_mesurement_flag(void){      //----------------reset du flag vielle mesure du capteur------------------------
   Wire.beginTransmission(BU27006MUC_ADDRESS);
   Wire.write(REG_MODE_CONTROL3);
   Wire.endTransmission();
@@ -146,7 +145,7 @@ uint8_t reset_mesurement_flag(void){
 }
 
 // Fonction pour configurer le capteur
-void configureSensor()
+void configureSensor()                  //configuration du capteur de couleur-----------------------------------
 {
   Wire.beginTransmission(BU27006MUC_ADDRESS);   //config controle 1
   Wire.write(REG_MODE_CONTROL1);
@@ -162,15 +161,14 @@ void configureSensor()
   Wire.write(REG_MODE_CONTROL3);
   Wire.write(0x06); // Activer la mesure RGB/IR
   Wire.endTransmission();
-}                                                            //------------------------------------------------------------------------------
+}                                                           
 
-void updateLoadingScreen(void) {
-  // Afficher l'écran de chargement
+void updateLoadingScreen(void) {      //-----------------------Affichage de l'écran de chargement-----------------------
   tft.fillScreen(theme_color);
   tft.setTextColor(ILI9341_WHITE);
   tft.setTextSize(2);
   tft.setCursor(60, 90);
-  tft.println("Loading...");
+  tft.println("Chargement...");
 
   // Afficher la barre de chargement
   tft.drawRect(60, 120, 200, 20, ILI9341_WHITE);
@@ -199,10 +197,10 @@ void drawCup(int x, int y) {
   tft.fillRect(x - (cupWidth / 2) + 2, y + cupHeight, cupWidth - 4, 5, ILI9341_WHITE); // Base de la coupe
 }
 
-void drawReturnButton(void){
-  tft.fillRect(10, 10, 100, 40, ILI9341_BLUE);
-  tft.drawRect(10, 10, 100, 40, ILI9341_WHITE);
-  int16_t arrowX = 10 + 5;
+void drawReturnButton(void){                      //-----------------dessine le bouton de retour sur l'ecran---------------
+  tft.fillRect(10, 10, 100, 40, ILI9341_BLUE);  //rempli un rectangle
+  tft.drawRect(10, 10, 100, 40, ILI9341_WHITE);  //dessine le coutour du rectangle
+  int16_t arrowX = 10 + 5;                       
   int16_t arrowY = 10 + (40 / 2) - 5;
   tft.fillTriangle(arrowX, arrowY, arrowX + 10, arrowY + 5, arrowX, arrowY + 10, ILI9341_WHITE);
   tft.setTextColor(ILI9341_WHITE);
@@ -213,14 +211,14 @@ void drawReturnButton(void){
   tft.print("Retour");
 }
 
-void singleTouch(void){
+void singleTouch(void){         //-------------anti rebond----------------------
   while (ts.touched()) {
     delay(150);
   }
 }
 
 
-void draw_MenuButton(int x, int y, int w, int h, const char* label,int x_text, int y_text, int text_size, uint16_t rectColor) {
+void draw_MenuButton(int x, int y, int w, int h, const char* label,int x_text, int y_text, int text_size, uint16_t rectColor) {   
   tft.fillRect(x,y, w, h, rectColor);
   tft.drawRect(x, y, w, h, ILI9341_WHITE);
   tft.setCursor(x_text, y + y_text);
@@ -289,7 +287,7 @@ uint16_t read_eeprom(uint8_t mem_slot_1,uint8_t mem_slot_2){
   return (highByte << 8) | lowByte;
 }
 
-void IRAM_ATTR chronometre (void){ 
+void IRAM_ATTR chronometre (void){        //----------------interruption a chaque seconde---------------------
   Seconde++;
   interrupt_flag = 1;
   if (Seconde > 59) {
@@ -299,11 +297,9 @@ void IRAM_ATTR chronometre (void){
   
 }
 
-void IRAM_ATTR capteur_couleur_go (void){
-  interrupt_flag_100ms = 1;
-}
 
-void Read_Skittle_color(uint8_t nombre_ecahantillon){
+
+void Read_Skittle_color(uint8_t nombre_ecahantillon){         
   uint8_t compteur_echantillon = 0;
   uint8_t trash_data = 0;
   while(compteur_echantillon != nombre_ecahantillon){
@@ -316,7 +312,7 @@ void Read_Skittle_color(uint8_t nombre_ecahantillon){
 
             trash_data ++;
 
-            if(trash_data >= 8){ 
+            if(trash_data >= 8){                                                      //nombre de donner avant la stabilisation du capteur
               total_rouge = total_rouge - echantillon_rouge[read_index];
               total_bleu = total_bleu - echantillon_bleu[read_index];
               total_vert = total_vert - echantillon_vert[read_index];
@@ -353,11 +349,6 @@ void setup() {
   timerAlarmWrite(My_timer, 1000000, true);
   timerAlarmEnable(My_timer);
 
-  My_timer_100ms = timerBegin(1, 80, true);       //interruption 100ms 
-  timerAttachInterrupt(My_timer_100ms, &capteur_couleur_go, true);
-  timerAlarmWrite(My_timer_100ms, 100000, true);
-  timerAlarmEnable(My_timer_100ms);
-
   Serial.begin(9600);
   tft.begin();
   EEPROM.begin(1024);
@@ -389,8 +380,8 @@ void setup() {
 	servo_redirection.attach(servoPin, 1000, 2500); // attaches the servo on pin 18 to the servo object
 	servo_360.attach(servoPin2, 1000, 2000);
   pinMode(LED,OUTPUT);
-  Serial.println(xPortGetCoreID());
   servo_redirection.write(position_rouge);
+
 }
 
 void loop() {
@@ -399,16 +390,16 @@ void loop() {
       updateLoadingScreen();                                                  //loading screen
       tft.fillScreen(theme_color);                                            //couleur de fond selon le theme
       drawBitmapFromProgmem(40, 70, start_button, 100, 100);                  //dessin du bouton de start
-      draw_MenuButton(0,0,320,40,"Main menu",10,20,2,0xC618);
+      draw_MenuButton(0,0,320,40,"Menu principale",10,20,2,0xC618);
       drawBitmapFromProgmem(170, 70, setting_gear, 100, 100);                 //dessin du bouton de setting
-      tft.setCursor(180, 180);
+      tft.setCursor(165, 180);
       tft.setTextColor(ILI9341_WHITE);
       tft.setTextSize(2);
-      tft.println("Setting");
-      tft.setCursor(63, 180);
+      tft.println("Parametre");
+      tft.setCursor(45, 180);
       tft.setTextColor(ILI9341_WHITE);
       tft.setTextSize(2);
-      tft.println("Start");
+      tft.println("Demarrer");
       appState = MENU;
       break;
     
@@ -449,8 +440,7 @@ void loop() {
           tft.print(compteur_total);
           Seconde = 0;                        //reset chronometre
           Minute = 0;                         
-          timerWrite(My_timer, 0);
-          timerWrite(My_timer_100ms, 0);
+          timerWrite(My_timer, 0);            //reset du timer
 
           tft.fillRect(180,30,100,30,theme_color);  //affichage chronometre
           tft.setTextSize(3);
@@ -481,7 +471,7 @@ void loop() {
       }
       break;
 
-    case START:                                                         //start state
+    case START:                                                         //menu demarrer
       if((interrupt_flag == 1) && (flag_fini == 0)){
         tft.fillRect(180,30,100,30,theme_color);
         tft.setTextSize(3);
@@ -529,10 +519,10 @@ void loop() {
           
           
 
-          if((score_aucun < score_rouge) && (score_aucun < score_orange) && (score_aucun < score_vert) && (score_aucun < score_mauve) && (score_aucun < score_jaune)){
+          if((score_aucun < score_rouge) && (score_aucun < score_orange) && (score_aucun < score_vert) && (score_aucun < score_mauve) && (score_aucun < score_jaune)){  //score aucun plus probable
              couleur_detecter[index_liste_attente_detection_couleur] = 'A';
              compteur_aucun++;
-             if(compteur_aucun >= 8){
+             if(compteur_aucun >= 8){     //arrete de la machine quand plus de Skittles
               flag_fini = 1;
               digitalWrite(LED,LOW);
               servo_360.write(90);
@@ -549,19 +539,19 @@ void loop() {
 
              }
           }
-          else if((score_rouge < score_jaune) && (score_rouge < score_mauve) && (score_rouge < score_orange) && (score_rouge < score_vert) && (score_rouge < score_aucun)){
+          else if((score_rouge < score_jaune) && (score_rouge < score_mauve) && (score_rouge < score_orange) && (score_rouge < score_vert) && (score_rouge < score_aucun)){ //score rouge plus probable
             couleur_detecter[index_liste_attente_detection_couleur] = 'R';
 
-          }else if((score_orange < score_jaune) && (score_orange < score_mauve) && (score_orange < score_rouge) && (score_orange < score_vert) && (score_orange < score_aucun)){
+          }else if((score_orange < score_jaune) && (score_orange < score_mauve) && (score_orange < score_rouge) && (score_orange < score_vert) && (score_orange < score_aucun)){ //score jaune plus probable
             couleur_detecter[index_liste_attente_detection_couleur] = 'O';
 
-          }else if((score_vert < score_jaune) && (score_vert < score_mauve) && (score_vert < score_rouge) && (score_vert < score_orange)  && (score_vert < score_aucun)){
+          }else if((score_vert < score_jaune) && (score_vert < score_mauve) && (score_vert < score_rouge) && (score_vert < score_orange)  && (score_vert < score_aucun)){ //score vert plus probable
             couleur_detecter[index_liste_attente_detection_couleur] = 'V';
 
-          }else if((score_mauve < score_jaune) && (score_mauve < score_vert) && (score_mauve < score_rouge) && (score_mauve < score_orange)  && (score_mauve < score_aucun)){
+          }else if((score_mauve < score_jaune) && (score_mauve < score_vert) && (score_mauve < score_rouge) && (score_mauve < score_orange)  && (score_mauve < score_aucun)){ //score mauve plus probable
             couleur_detecter[index_liste_attente_detection_couleur] = 'M';
 
-          }else if((score_jaune < score_mauve) && (score_jaune < score_vert) && (score_jaune < score_rouge) && (score_jaune < score_orange) && (score_jaune < score_aucun)){ 
+          }else if((score_jaune < score_mauve) && (score_jaune < score_vert) && (score_jaune < score_rouge) && (score_jaune < score_orange) && (score_jaune < score_aucun)){ //score jaune plus probable
             couleur_detecter[index_liste_attente_detection_couleur] = 'J';
           }
 
@@ -571,11 +561,11 @@ void loop() {
           }
           else if((digitalRead(SWITCH) == 1 && flag_skittle_position == 1 && flag_fini == 0)){
             servo_360.write(75);
-            printf("erreur\r\n");
+            printf("erreur en cours de rattrapage\r\n");
           }
         else{
-          if((flag_skittle_position == 1) && (flag_fini == 0)){
-            while(digitalRead(SWITCH) == 0){
+          if((flag_skittle_position == 1) && (flag_fini == 0)){     //lecture de la couleur fini et encore skittles dans la machine
+            while(digitalRead(SWITCH) == 0){                        //Skittle vis a vis le capteur
               if (ts.touched()) {
 
                 TS_Point p = ts.getPoint();
@@ -587,16 +577,16 @@ void loop() {
                 if (abs(p.x - 10) < 100 && abs(p.y - 10) < 40){           //appui sur bouton retour
                   tft.fillScreen(theme_color);
                   drawBitmapFromProgmem(40, 70, start_button, 100, 100);
-                  draw_MenuButton(0,0,320,40,"Main menu",10,20,2,0xC618);
+                  draw_MenuButton(0,0,320,40,"Menu principale",10,20,2,0xC618);
                   drawBitmapFromProgmem(170, 70, setting_gear, 100, 100);
-                  tft.setCursor(180, 180);
+                  tft.setCursor(165, 180);
                   tft.setTextColor(ILI9341_WHITE);
                   tft.setTextSize(2);
-                  tft.println("Setting");
-                  tft.setCursor(63, 180);
+                  tft.println("Parametre");
+                  tft.setCursor(45, 180);
                   tft.setTextColor(ILI9341_WHITE);
                   tft.setTextSize(2);
-                  tft.println("Start");
+                  tft.println("Demarrer");
                   digitalWrite(LED,LOW);
                   compteur_skittle_position = 0;
                   compteur_aucun = 0;
@@ -615,7 +605,7 @@ void loop() {
               }
               index_a_lire = (index_liste_attente_detection_couleur + 4) % 5;
 
-              if(couleur_detecter[index_a_lire] == 'R'){
+              if(couleur_detecter[index_a_lire] == 'R'){      //redirection pour rouge
                 servo_redirection.write(position_rouge);
                 compteur_rouge++;
                 compteur_total++;
@@ -630,7 +620,7 @@ void loop() {
                 tft.print("total:");
                 tft.print(compteur_total);
                 couleur_detecter[index_a_lire] = 'A';
-              }else if (couleur_detecter[index_a_lire] == 'O'){
+              }else if (couleur_detecter[index_a_lire] == 'O'){     //redirection pour orange
                 servo_redirection.write(position_orange);
                 compteur_orange++;
                 compteur_total++;
@@ -645,7 +635,7 @@ void loop() {
                 tft.print("total:");
                 tft.print(compteur_total);
                 couleur_detecter[index_a_lire] = 'A';
-              }else if (couleur_detecter[index_a_lire] == 'V'){
+              }else if (couleur_detecter[index_a_lire] == 'V'){   //redirection pour vert
                 servo_redirection.write(position_vert);
                 compteur_vert++;
                 compteur_total++;
@@ -660,7 +650,7 @@ void loop() {
                 tft.print("total:");
                 tft.print(compteur_total);
                 couleur_detecter[index_a_lire] = 'A';
-              }else if (couleur_detecter[index_a_lire] == 'M'){
+              }else if (couleur_detecter[index_a_lire] == 'M'){     //redirection pour mauve
                 servo_redirection.write(position_mauve);
                 compteur_mauve++;
                 compteur_total++;
@@ -675,7 +665,7 @@ void loop() {
                 tft.print("total:");
                 tft.print(compteur_total);
                 couleur_detecter[index_a_lire] = 'A';
-              }else if (couleur_detecter[index_a_lire] == 'J'){
+              }else if (couleur_detecter[index_a_lire] == 'J'){     //redirection pour jaune
                 servo_redirection.write(position_jaune);
                 compteur_jaune++;
                 compteur_total++;
@@ -692,7 +682,7 @@ void loop() {
                 couleur_detecter[index_a_lire] = 'A';
               }
               delay(120);
-              servo_360.write(65);
+              servo_360.write(65);        
             }
             flag_skittle_position = 0;
           }
@@ -710,16 +700,17 @@ void loop() {
         if (abs(p.x - 10) < 100 && abs(p.y - 10) < 40){           //appui sur bouton retour
           tft.fillScreen(theme_color);
           drawBitmapFromProgmem(40, 70, start_button, 100, 100);
-          draw_MenuButton(0,0,320,40,"Main menu",10,20,2,0xC618);
+          draw_MenuButton(0,0,320,40,"Menu principale",10,20,2,0xC618);
           drawBitmapFromProgmem(170, 70, setting_gear, 100, 100);
-          tft.setCursor(180, 180);
+
+          tft.setCursor(165, 180);
           tft.setTextColor(ILI9341_WHITE);
           tft.setTextSize(2);
-          tft.println("Setting");
-          tft.setCursor(63, 180);
+          tft.println("Parametre");
+          tft.setCursor(45, 180);
           tft.setTextColor(ILI9341_WHITE);
           tft.setTextSize(2);
-          tft.println("Start");
+          tft.println("Demarrer");
           digitalWrite(LED,LOW);
           compteur_skittle_position = 0;
           compteur_aucun = 0;
@@ -739,7 +730,7 @@ void loop() {
       }
       break;
 
-    case CONFIG:                                                                //config state
+    case CONFIG:                                                                //menu parametre
       if (ts.touched()) {
 
         TS_Point p = ts.getPoint();
@@ -753,16 +744,16 @@ void loop() {
         if (abs(p.x - 10) < 100 && abs(p.y - 10) < 40){                               //appui sur bouton retour
           tft.fillScreen(theme_color);
           drawBitmapFromProgmem(40, 70, start_button, 100, 100);
-          draw_MenuButton(0,0,320,40,"Main menu",10,20,2,0xC618);
+          draw_MenuButton(0,0,320,40,"Menu principale",10,20,2,0xC618);
           drawBitmapFromProgmem(170, 70, setting_gear, 100, 100);
-          tft.setCursor(180, 180);
+          tft.setCursor(165, 180);
           tft.setTextColor(ILI9341_WHITE);
           tft.setTextSize(2);
-          tft.println("Setting");
-          tft.setCursor(63, 180);
+          tft.println("Parametre");
+          tft.setCursor(45, 180);
           tft.setTextColor(ILI9341_WHITE);
           tft.setTextSize(2);
-          tft.println("Start");
+          tft.println("Demarrer");
           appState = MENU;
         }
 
@@ -788,7 +779,7 @@ void loop() {
           drawSkittle(165,95,ILI9341_RED);
           digitalWrite(LED,HIGH);
           while(digitalRead(SWITCH) == 1){
-	
+            printf("homing\r\n");
 		        servo_360.write(70);
 	        }
 	        servo_360.write(90);
@@ -821,7 +812,7 @@ void loop() {
           for(int i=0;i<5;i++){
             tft.fillRect(5+i*64,150,50,50,skittleColors[i]);
           }
-          draw_MenuButton(80,70,150,50,"Spin",120,15,3,0x7BEF);
+          draw_MenuButton(80,70,150,50,"tourner",95,15,3,0x7BEF);
           draw_MenuButton(10,70,60,50,"",10,10,3,0x7BEF);
           drawHomeIcon(10, 70, 60, 50, ILI9341_WHITE);  // maison blanche au centre du bouton
           appState = CONTROLE_CONFIG;
@@ -912,7 +903,7 @@ void loop() {
         singleTouch();      
       }
       break;
-    case CALIBRATION_CONFIG:
+    case CALIBRATION_CONFIG:                                    //menu calibration
       if (ts.touched()) {  
         TS_Point p = ts.getPoint();
         // Conversion des coordonnées selon l'orientation de l'écran
@@ -927,21 +918,19 @@ void loop() {
           calibration_compteur = 0;
           digitalWrite(LED,LOW);
           compteur_skittle_position = 0;
-          while(compteur_skittle_position != 2)
-          {
-            if ((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0))
-            { // skittle vis a vis du capteur de couleur
+          while(compteur_skittle_position != 2){
+            if((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0)){ // skittle vis a vis du capteur de couleur
               compteur_skittle_position++;
               servo_360.write(90);                                                 // arrete le moteur
               flag_skittle_position = 1;
             }else if (flag_skittle_position == 1){
               while (digitalRead(SWITCH) == 0)
               {
-                servo_360.write(60);
+                servo_360.write(65);
               }
               flag_skittle_position = 0;
             }else{
-              servo_360.write(60);
+              servo_360.write(65);
             }
           }
           compteur_skittle_position = 0;
@@ -950,7 +939,7 @@ void loop() {
 
 
         if((abs(p.x < 270) && (abs(p.x > 50)) && (abs(p.y < 165)) && (abs(p.y > 115))) && calibration_compteur == 4){        //bouton OK appuyer
-          
+          compteur_skittle_position = 0;
           while (compteur_skittle_position != 2)
           {
             if ((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0))
@@ -963,9 +952,11 @@ void loop() {
             {
               while (digitalRead(SWITCH) == 0)
               {
-                servo_360.write(60);
+                servo_360.write(65);
               }
               flag_skittle_position = 0;
+            }else{
+              servo_360.write(65);
             }
           }
           
@@ -1002,9 +993,8 @@ void loop() {
           }
 
         }else if((abs(p.x < 270) && (abs(p.x > 50)) && (abs(p.y < 165)) && (abs(p.y > 115))) && calibration_compteur == 0){        //bouton OK appuyer
-          
-         while (compteur_skittle_position != 2)
-          {
+          compteur_skittle_position = 0;
+          while (compteur_skittle_position != 2){
             if ((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0))
             { // skittle vis a vis du capteur de couleur
               compteur_skittle_position++;
@@ -1015,11 +1005,11 @@ void loop() {
             {
               while (digitalRead(SWITCH) == 0)
               {
-                servo_360.write(60);
+                servo_360.write(65);
               }
               flag_skittle_position = 0;
             }else{
-              servo_360.write(60);
+              servo_360.write(65);
             }
           }
           if(compteur_skittle_position == 2){
@@ -1054,9 +1044,8 @@ void loop() {
           }
 
         }else if((abs(p.x < 270) && (abs(p.x > 50)) && (abs(p.y < 165)) && (abs(p.y > 115))) && calibration_compteur == 1){
-          
-          while (compteur_skittle_position != 2)
-          {
+          compteur_skittle_position = 0;
+          while (compteur_skittle_position != 2){
             if ((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0))
             { // skittle vis a vis du capteur de couleur
               compteur_skittle_position++;
@@ -1067,11 +1056,11 @@ void loop() {
             {
               while (digitalRead(SWITCH) == 0)
               {
-                servo_360.write(60);
+                servo_360.write(65);
               }
               flag_skittle_position = 0;
             }else{
-              servo_360.write(60);
+              servo_360.write(65);
             }
           }
           
@@ -1109,9 +1098,8 @@ void loop() {
           }
 
         }else if((abs(p.x < 270) && (abs(p.x > 50)) && (abs(p.y < 165)) && (abs(p.y > 115))) && calibration_compteur == 2){
-
-          while (compteur_skittle_position != 2)
-          {
+          compteur_skittle_position = 0;
+          while (compteur_skittle_position != 2){
             if ((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0))
             { // skittle vis a vis du capteur de couleur
               compteur_skittle_position++;
@@ -1122,11 +1110,11 @@ void loop() {
             {
               while (digitalRead(SWITCH) == 0)
               {
-                servo_360.write(60);
+                servo_360.write(65);
               }
               flag_skittle_position = 0;
             }else{
-              servo_360.write(60);
+              servo_360.write(65);
             }
           }
 
@@ -1164,9 +1152,8 @@ void loop() {
 
 
         }else if((abs(p.x < 270) && (abs(p.x > 50)) && (abs(p.y < 165)) && (abs(p.y > 115))) && calibration_compteur == 3){
-          
-          while (compteur_skittle_position != 2)
-          {
+          compteur_skittle_position = 0;
+          while (compteur_skittle_position != 2){
             if ((digitalRead(SWITCH) == 0) && (flag_skittle_position == 0))
             { // skittle vis a vis du capteur de couleur
               compteur_skittle_position++;
@@ -1177,13 +1164,13 @@ void loop() {
             {
               while (digitalRead(SWITCH) == 0)
               {
-                servo_360.write(60);
+                servo_360.write(65);
               }
               flag_skittle_position = 0;
             }else{
-              servo_360.write(60);
+              servo_360.write(65);
             }
-          }
+          }s
           
           
           if(compteur_skittle_position == 2){
@@ -1221,7 +1208,7 @@ void loop() {
       }
     break;
     
-    case CONTROLE_CONFIG:
+    case CONTROLE_CONFIG:                                               //menu configuration
       if (ts.touched()) {
 
         TS_Point p = ts.getPoint();
@@ -1245,11 +1232,11 @@ void loop() {
           delay(100);           
           if(boutton_spin_state == false){
             servo_360.write(70);
-            draw_MenuButton(80,70,150,50,"Stop",120,15,3,0x7BEF);
+            draw_MenuButton(80,70,150,50,"arreter",95,15,3,0x7BEF);
             boutton_spin_state = true;
           }else{
             servo_360.write(90);
-            draw_MenuButton(80,70,150,50,"Spin",120,15,3,0x7BEF);
+            draw_MenuButton(80,70,150,50,"tourner",95,15,3,0x7BEF);
             boutton_spin_state = false;
           } 
         }
